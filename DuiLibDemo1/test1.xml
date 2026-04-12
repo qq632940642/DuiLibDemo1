@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window size="800,600" caption="0,0,0,35">
+	<VerticalLayout bkcolor="#FFFFFFFF">
+		<Button name="closebtn"
+                width="100" height="30"
+                text="关闭窗口"
+				normalimage="file='hand_mourse.jpg'"/>
+		<Label text="一曲肝肠断，天涯何处觅知音"
+               align="center"
+               font="16"
+               textcolor="#FF000000"/>
+	</VerticalLayout>
+</Window>

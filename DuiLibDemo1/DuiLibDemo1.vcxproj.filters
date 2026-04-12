@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="res">
+      <UniqueIdentifier>{a5e9684f-1573-41a8-ab05-6c4bd51d5dbf}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="resource1.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="DuiLibDemo11.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="test1.xml">
+      <Filter>res</Filter>
+    </Xml>
+    <Xml Include="test2.xml" />
+    <Xml Include="skin\test2.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="C:\Users\86186\Desktop\hand_mourse.jpg">
+      <Filter>res</Filter>
+    </Image>
+    <Image Include="skin\minimize.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\minimize_h.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\minimize_p.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\maximize.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\maximize_h.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\maximize_p.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\..\..\duiLib\vcpkg\buildtrees\duilib\src\370c68b1e7-49ba2ba160.clean\MenuDemo\res\close_p.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\..\..\duiLib\vcpkg\buildtrees\duilib\src\370c68b1e7-49ba2ba160.clean\MenuDemo\res\close.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\..\..\duiLib\vcpkg\buildtrees\duilib\src\370c68b1e7-49ba2ba160.clean\MenuDemo\res\close_h.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\close.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\close_h.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\close_p.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\restore.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\restore_h.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\restore_p.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\button.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\button_h.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="skin\button_p.png">
+      <Filter>资源文件</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="x64\Debug\Main.obj" />
+  </ItemGroup>
+</Project>

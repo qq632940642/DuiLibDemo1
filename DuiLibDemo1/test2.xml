@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--界面布局-->
+<Window mininfo="200,360" size=" 480,320 ">
+		<Font name="幼圆" size="16" default="true" />
+		<VerticalLayout bkcolor="#FFFF00FF">
+			<Button name="changeskinbtn" height="20" text="我是按钮" maxwidth="120" />
+			<RichEdit name="testrichedit" bordercolor="#FF0000" bordersize="0" borderround="18,18" inset="4,2,4,2" bkcolor="#A0F2F5FA" bkcolor2="#A0FF0000" bkcolor3="#A0F2F5FA" font="1" multiline="true" vscrollbar="true" autovscroll="true" enabled="true" rich="true" readonly="false" text="我是richedit">
+			</RichEdit>
+			<Edit name="testedit" text="我是编辑框 别以为长得帅我就不打你" />
+		</VerticalLayout>
+</Window>
