@@ -28,7 +28,93 @@
 #include <objbase.h>
 #include <duilib/Core/UIContainer.h>
 
+// libcurl 相关头文件
+#include <curl/curl.h>
+
+// JSON 解析库
+#include <nlohmann/json.hpp>
+
 using namespace DuiLib;
+using json = nlohmann::json;
+
+/**
+ * @brief libcurl 数据接收回调函数
+ * @param contents 服务器返回的数据块
+ * @param size 单个数据块字节大小
+ * @param nmemb 数据块个数
+ * @param s 外部传入的string，用来拼接完整响应
+ * @return 已处理的字节数
+ */
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* s)
+{
+    size_t newLength = size * nmemb;
+    try
+    {
+        // 把返回的数据追加到string中
+        s->append((char*)contents, newLength);
+    }
+    catch (std::bad_alloc& e)
+    {
+        // 内存分配失败，返回0终止请求
+        return 0;
+    }
+    return newLength;
+}
+
+/**
+ * @brief 通用HTTP请求封装
+ * @param url 请求地址
+ * @param method 请求方式 GET/POST
+ * @param body POST请求体JSON字符串
+ * @return 服务器完整响应文本
+ */
+std::string HttpRequest(const char* url, const char* method, const char* body)
+{
+    // 初始化curl会话
+    CURL* curl = curl_easy_init();
+    if (!curl)
+    {
+        return "curl 初始化失败";
+    }
+
+    std::string response;
+
+    // 设置请求地址
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    // 允许跟随重定向
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    // 设置接收数据的回调函数
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    // 把response指针传给回调函数
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+    // 如果是POST请求且有请求体
+    if (_stricmp(method, "POST") == 0 && body && strlen(body) > 0)
+    {
+        // 启用POST方式
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+        // 设置POST提交的表单/JSON数据
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
+
+        // 构造请求头：声明Content-Type为JSON
+        struct curl_slist* headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    }
+
+    // 执行同步HTTP请求
+    CURLcode res = curl_easy_perform(curl);
+    // 请求出错
+    if (res != CURLE_OK)
+    {
+        response = "请求失败: " + std::string(curl_easy_strerror(res));
+    }
+
+    // 释放curl资源
+    curl_easy_cleanup(curl);
+    return response;
+}
+
 
 // TODO 还需要设置字符集？
 
@@ -183,7 +269,7 @@ public:
     void OnFinalMessage(HWND /*hWnd*/) { delete this; };
 
     // 核心功能：控件事件分发、消息传递枢纽
-    void Notify(TNotifyUI& msg)
+    void Notify(TNotifyUI& msg) override
     {
         if (msg.sType == _T("click")) {
             //if (msg.pSender->GetName() == _T("I服了You")) { // 即点击的根控件root，代码见下面
@@ -228,11 +314,82 @@ public:
                     MessageBox(m_hWnd, L"安能摧眉折腰事权贵,使我不得开心颜！", L"消息标题", MB_OK | MB_ICONINFORMATION);
                 }
             }
+            else if (msg.pSender->GetName() == _T("send_btn")) {
+                // 1. 获取URL输入框控件 & 文本
+                CEditUI* urlEdit = static_cast<CEditUI*>(m_pm.FindControl(_T("url_edit")));
+                CDuiString urlW = urlEdit->GetText();
+
+                // 2. 获取下拉框选中的请求方式 GET/POST
+                CComboUI* combo = static_cast<CComboUI*>(m_pm.FindControl(_T("method_combo")));
+                int selIdx = combo->GetCurSel();
+                CListLabelElementUI* pItem = (CListLabelElementUI*)combo->GetItemAt(selIdx);
+                CDuiString methodW = pItem ? pItem->GetText() : _T("GET");
+
+                // 3. 获取请求体RichEdit输入内容
+                CRichEditUI* bodyEdit = static_cast<CRichEditUI*>(m_pm.FindControl(_T("body_edit")));
+                CDuiString bodyW = bodyEdit->GetText();
+
+                // 宽字符转窄字符，给libcurl使用
+                auto WideToMulti = [](const std::wstring& wstr) -> std::string {
+                    if (wstr.empty()) return "";
+                    int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), NULL, 0, NULL, NULL);
+                    std::string res(len, 0);
+                    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &res[0], len, NULL, NULL);
+                    return res;
+                    };
+                std::string url = WideToMulti(urlW.GetData());
+                std::string method = WideToMulti(methodW.GetData());
+                std::string body = WideToMulti(bodyW.GetData());
+
+                // 4. 开子线程执行网络请求
+                // 避免阻塞UI主线程导致窗口卡死
+                std::thread([=, this]() // 这里的等于号，意思是值捕获，以“值拷贝”的方式，捕获外部所有变量。 this是当前类的this指针
+                    {
+                        // 执行HTTP请求
+                        std::string respResult = HttpRequest(url.c_str(), method.c_str(), body.c_str());
+
+                        // 发送自定义消息到主线程，更新界面
+                        // 不能在子线程直接操作Duilib控件
+                         // PostMessage前面的:: 意思是调用全局的 Win32 API 函数，不调用该类里的同名函数
+                        // 不直接传respResult， respResult是局部变量，出了作用域就销毁了。
+                        ::PostMessage(m_hWnd, WM_USER + 100, 0, (LPARAM)new std::string(respResult));
+                    }).detach(); // 分离线程，自动回收资源
+
+                // 先给结果框显示 请求中 提示
+                CRichEditUI* resultEdit = static_cast<CRichEditUI*>(m_pm.FindControl(_T("result_edit")));
+                if (resultEdit)
+                {
+                    resultEdit->SetText(_T("请求中，请稍候..."));
+                }
+            }
         }
     }
 
     LRESULT HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
+        // 自定义消息：子线程请求完成，更新响应结果到界面
+        if (uMsg == WM_USER + 100)
+        {
+            std::string* pResp = reinterpret_cast<std::string*>(lParam);
+            CRichEditUI* resultEdit = static_cast<CRichEditUI*>(m_pm.FindControl(_T("result_edit")));
+            if (resultEdit && pResp)
+            {
+                // 窄字符转宽字符显示
+                auto UTF8ToWide = [](const std::string& str) -> std::wstring {
+                    if (str.empty()) return L"";
+                    int len = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), NULL, 0);
+                    std::wstring res(len, L'\0');
+                    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &res[0], len);
+                    return res;
+                    };
+                std::wstring showText = UTF8ToWide(*pResp);
+                resultEdit->SetText(showText.c_str());
+            }
+            // 释放堆内存
+            delete pResp;
+            return 0;
+        }
+
         if (uMsg == WM_CREATE) { // 成功创建窗口后, 系统会立即发送 WM_CREATE 消息, 标志着窗口句柄已有效但尚未显示
             m_pm.Init(m_hWnd); // 绑定窗口句柄，初始化绘图环境
             //CControlUI* root = new CButtonUI;

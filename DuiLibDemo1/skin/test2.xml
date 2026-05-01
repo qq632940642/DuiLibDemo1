@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--界面布局-->
 <!-- 窗口设置 -->
-<Window roundcorner="5,5" size="600,450"  mininfo="80,60"  caption="0,0,0,36"> <!--caption属性定义标题栏的矩形区域,可拖动区域-->
+<Window roundcorner="5,5" size="800,600"  mininfo="400,300"  caption="0,0,0,36"> <!--caption属性定义标题栏的矩形区域,可拖动区域-->
 	<!--定义默认字体-->
   <Font id="0" name="微软雅黑" size="12" bold="false" default="true" shared="true" />
   <Font id="1" name="微软雅黑" size="12" bold="true" shared="true" />
+  <Font id="2" name="Consolas" size="13" bold="false" default="false" shared="false" />
   
   <VerticalLayout bkcolor="#FFFFFFFF" bordersize="2" bordercolor="#FF0934DA" name ="root">
 	<!--标题栏区域-->
     <HorizontalLayout name="title_bar" height="36" bkcolor="#FF4775CC">
       <HorizontalLayout>
         <Control width="10"/>
-        <Label name="apptitle" text="我是标题" font="1" textcolor="#FFFFFFFF" />
+        <Label name="apptitle" text="API测试工具 君子之交淡如水" font="1" textcolor="#FFFFFFFF" />
       </HorizontalLayout>  
 	  <HorizontalLayout height="25" width="96">
         <Button name="minbtn" tooltip="最小化" height="18" width="26" normalimage="file='minimize.png'" hotimage="file='minimize_h.png'" pushedimage="file='minimize_p.png'"/>
@@ -21,12 +22,53 @@
 	  </HorizontalLayout>
     </HorizontalLayout>
   
-    <VerticalLayout name="body" padding="10,10,2,2">
-		<Text name="text_str" wordbreak="true" text="安能摧眉折腰事权贵,使我不得开心颜" fontColor="0xFF333333" textPadding="5,5,5,5"/>
+    <VerticalLayout name="body" padding="10,10,2,2" visible ="false">
+		<Text name="text_str" wordbreak="true" text="安能摧眉折腰事权贵,使我不得开心颜!" fontColor="0xFF333333" textPadding="5,5,5,5"/>
 		<Control height="10" />
 		<Edit name="edit_str" width="120" height="26" textpadding="1,1,1,1" bkcolor="#FFFAEBD7"/>
 		<Control height="10" />
 		<Button name="btn_test" text="测试" height="30" width="120" normalimage="file='button.png'" hotimage="file='button_h.png'" pushedimage="file='button_p.png'"/> 
 	</VerticalLayout>
+
+	  <VerticalLayout name="main_workarea" padding="10,10,10,10" visible ="true" bkcolor="#FFF5F5F5">
+		  <!-- 1. URL 行 -->
+		  <HorizontalLayout height="32" padding="0,0,0,8">
+			  <Label text="URL：" width="40" textalign="center" font="0" textcolor="#FF333333" />
+			  <Edit name="url_edit" height="30" padding="4,0,0,0" font="0"
+					textpadding="4,0,0,0" bkcolor="#FFFFFFFF" borderround="2,2"
+					bordersize="1" bordercolor="#FFCCCCCC" />
+		  </HorizontalLayout>
+
+		  <!-- 2. 请求方式 + 发送按钮（发送按钮可以放右边） -->
+		  <HorizontalLayout height="36" padding="0,0,0,12">
+			  <Label text="请求方式：" width="65" textalign="center" font="0" textcolor="#FF333333" />
+			  <Combo name="method_combo" width="100" height="28" font="0"
+					 borderround="2,2" bordersize="1" bordercolor="#FFCCCCCC">
+				  <ListLabelElement text="GET" selected="true"/>
+				  <ListLabelElement text="POST"/>
+			  </Combo>
+			  <Button name="send_btn" text="🔍 发送请求" width="120" height="30"
+					  font="1" textcolor="#FFFFFFFF" bkcolor="#FF4775CC"
+					  hotbkcolor="#FF5A8CDE" pushedbkcolor="#FF3A5CA8"
+					  borderround="4,4" padding="40,0,0,0" />
+		  </HorizontalLayout>
+
+		  <!-- 3. 请求体（Body）区域 -->
+		  <VerticalLayout height="140" padding="0,0,0,12">
+			  <Label text="请求体 (Request Body，JSON/文本格式)：" height="24" font="0" textcolor="#FF333333" />
+			  <RichEdit name="body_edit" multiline="true" vscrollbar="true" wanttab="true" wantreturn="true" nowrap="false" autovscroll="false" height="100"
+					font="2" bkcolor="#FFFFFFFF" bordersize="1" bordercolor="#FFCCCCCC"
+					textpadding="4,4,4,4"/>
+		  </VerticalLayout>
+
+		  <!-- 4. 响应结果区域 -->
+		  <VerticalLayout>
+			  <Label text="响应结果 (Response)：" height="24" font="0" textcolor="#FF333333" />
+			  <RichEdit name="result_edit" multiline="true" vscrollbar="true" readonly="true" height ="100"
+					font="2" bkcolor="#FFFFFFFF" bordersize="1" bordercolor="#FFCCCCCC"
+					textpadding="4,4,4,4" />
+		  </VerticalLayout>
+		  
+	  </VerticalLayout>
   </VerticalLayout>
 </Window>
