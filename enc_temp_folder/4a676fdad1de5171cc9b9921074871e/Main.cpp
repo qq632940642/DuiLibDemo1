@@ -358,7 +358,7 @@ public:
 
                         try
                         {
-                            // 测试下解析 JSON
+                            // 解析 JSON
                             json jsonStr = json::parse(respResult);
 
                             // 取值
