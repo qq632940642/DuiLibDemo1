@@ -12,7 +12,7 @@
     <HorizontalLayout name="title_bar" height="36" bkcolor="#FF4775CC">
       <HorizontalLayout>
         <Control width="10"/>
-        <Label name="apptitle" text="API测试工具 君子之交淡如水" font="1" textcolor="#FFFFFFFF" />
+        <Label name="apptitle" text="API测试工具   昨日种种，皆成今我；切莫思量，更莫哀；从今往后，怎么收获，怎么栽。" font="1" textcolor="#FFFFFFFF" />
       </HorizontalLayout>  
 	  <HorizontalLayout height="25" width="96">
         <Button name="minbtn" tooltip="最小化" height="18" width="26" normalimage="file='minimize.png'" hotimage="file='minimize_h.png'" pushedimage="file='minimize_p.png'"/>

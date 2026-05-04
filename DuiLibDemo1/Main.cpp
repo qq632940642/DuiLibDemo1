@@ -34,6 +34,12 @@
 // JSON 解析库
 #include <nlohmann/json.hpp>
 
+// 代理API
+#include <winhttp.h>
+
+// 链接 winhttp.lib 库
+#pragma comment(lib, "winhttp.lib")
+
 using namespace DuiLib;
 using json = nlohmann::json;
 
@@ -68,6 +74,52 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::stri
 }
 
 /**
+ * @brief 获取 Windows 系统的 HTTP 代理字符串（用于 libcurl）
+ * @return std::string 代理字符串，如 "http://proxy.company.com:8080"；若系统未设代理或获取失败则返回空字符串
+ */
+std::string GetProxyFromSystem() {
+    WINHTTP_CURRENT_USER_IE_PROXY_CONFIG proxyConfig = { 0 };
+
+    // 1. 调用 Windows API 获取代理配置
+    if (!WinHttpGetIEProxyConfigForCurrentUser(&proxyConfig)) {
+        return ""; // 获取失败，返回空字符串
+    }
+
+    std::string proxyAddress;
+
+    // 2. 检查是否配置了代理服务器
+    if (proxyConfig.lpszProxy != nullptr && wcslen(proxyConfig.lpszProxy) > 0) {
+        // 将宽字符串转换为多字节字符串（适用于 libcurl）
+        int len = WideCharToMultiByte(CP_UTF8, 0, proxyConfig.lpszProxy, -1, nullptr, 0, nullptr, nullptr);
+        std::string proxyAddr(len, '\0');
+        WideCharToMultiByte(CP_UTF8, 0, proxyConfig.lpszProxy, -1, &proxyAddr[0], len, nullptr, nullptr);
+
+        // 去除末尾的 '\0'
+        if (!proxyAddr.empty() && proxyAddr.back() == '\0') proxyAddr.pop_back();
+
+        // 构造完整的代理 URL
+        // 注意：WinHttpGetIEProxyConfigForCurrentUser 返回的可能只是 "proxy.company.com:8080"
+        // 需要加上 "http://" 前缀
+        // 检查是否已包含协议前缀
+        if (proxyAddr.find("http://") == 0 ||
+            proxyAddr.find("https://") == 0 ||
+            proxyAddr.find("socks") == 0) {
+            proxyAddress = proxyAddr;   // 已有协议，直接使用
+        }
+        else {
+            proxyAddress = "http://" + proxyAddr;  // 无协议，添加 http://
+        }
+    }
+
+    // 3. 清理内存，防止内存泄漏
+    if (proxyConfig.lpszProxy != nullptr) GlobalFree(proxyConfig.lpszProxy);
+    if (proxyConfig.lpszProxyBypass != nullptr) GlobalFree(proxyConfig.lpszProxyBypass);
+    if (proxyConfig.lpszAutoConfigUrl != nullptr) GlobalFree(proxyConfig.lpszAutoConfigUrl);
+
+    return proxyAddress; // 如果未配置代理，返回空字符串
+}
+
+/**
  * @brief 通用HTTP请求封装
  * @param url 请求地址（UTF-8）
  * @param method 请求方式 GET/POST
@@ -99,6 +151,18 @@ std::string HttpRequest(const char* url, const char* method, const char* body, c
 
     // 设置请求地址
     curl_easy_setopt(curl, CURLOPT_URL, url);
+
+    // ========== 自动代理设置开始。  醉过才知酒浓，爱过才知情重。 ==========
+    std::string proxyAddress = GetProxyFromSystem(); // 获取系统代理字符串
+    Log("proxyAddress: " + proxyAddress);
+    if (!proxyAddress.empty()) {
+        // 设置代理服务器地址
+        curl_easy_setopt(curl, CURLOPT_PROXY, proxyAddress.c_str());
+
+        // demo只访问HTTP，HTTP代理也能正常工作，这行是保险。
+        curl_easy_setopt(curl, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+    }
+    // ========== 自动代理设置结束。 力拔山兮气盖世 ==========
 
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L); // 关闭证书验证
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L); // 关闭主机验证
