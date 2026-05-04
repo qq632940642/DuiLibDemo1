@@ -52,6 +52,15 @@
 					  hotbkcolor="#FF5A8CDE" pushedbkcolor="#FF3A5CA8"
 					  borderround="4,4" padding="40,0,0,0" />
 		  </HorizontalLayout>
+		  
+		  <!-- 请求头区域 -->
+		  <VerticalLayout height="100" padding="0,0,0,8">
+			 <Label text="请求头 (Headers)：" height="24" font="0" textcolor="#FF333333" />
+			 <RichEdit name="headers_edit" multiline="true" vscrollbar="true" 
+						font="2" bkcolor="#FFFFFFFF" bordersize="1" bordercolor="#FFCCCCCC"
+						textpadding="4,4,4,4" 
+						tip="每行格式：key: value&#10;例如：Authorization: Bearer xyz" />
+		  </VerticalLayout>
 
 		  <!-- 3. 请求体（Body）区域 -->
 		  <VerticalLayout height="140" padding="0,0,0,12">

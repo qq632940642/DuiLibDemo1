@@ -37,6 +37,11 @@
 using namespace DuiLib;
 using json = nlohmann::json;
 
+void Log(const std::string& msg) {
+    std::string out = msg + "\n";
+    OutputDebugStringA(out.c_str());
+}
+
 
 /**
  * @brief libcurl 数据接收回调函数
@@ -64,19 +69,31 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::stri
 
 /**
  * @brief 通用HTTP请求封装
- * @param url 请求地址
+ * @param url 请求地址（UTF-8）
  * @param method 请求方式 GET/POST
- * @param body POST请求体JSON字符串
+ * @param body POST请求体JSON字符串（可为 nullptr 或空字符串）
+ * @param headersStr 自定义请求头，每行格式 "key: value"，多条用换行分隔（UTF-8，可为 nullptr）
  * @return 服务器完整响应文本
  */
-std::string HttpRequest(const char* url, const char* method, const char* body)
+std::string HttpRequest(const char* url, const char* method, const char* body, const char* headersStr)
 {
+    Log("进入 HttpRequest 函数");
     // 初始化curl会话
     CURL* curl = curl_easy_init();
     if (!curl)
     {
         return "curl 初始化失败";
     }
+
+    // 在 curl_easy_init 之后添加
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+    // 自定义调试回调，将输出重定向到 OutputDebugString
+    curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION,
+        [](CURL* handle, curl_infotype type, char* data, size_t size, void* userptr) -> int {
+            std::string info(data, size);
+            OutputDebugStringA(info.c_str());
+            return 0;
+        });
 
     std::string response;
 
@@ -92,6 +109,8 @@ std::string HttpRequest(const char* url, const char* method, const char* body)
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     // 把response指针传给回调函数
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    // 整个 libcurl 请求允许执行的最长时间（秒数），包括连接建立、数据传输等所有阶段。
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 
     // 如果是POST请求且有请求体
     if (_stricmp(method, "POST") == 0 && body && strlen(body) > 0)
@@ -100,25 +119,83 @@ std::string HttpRequest(const char* url, const char* method, const char* body)
         curl_easy_setopt(curl, CURLOPT_POST, 1L);
         // 设置POST提交的表单/JSON数据
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
+    }
+    if (_stricmp(method, "GET") != 0 && _stricmp(method, "POST") != 0) {
+        // 如果方法不是 GET/POST，可以按需要扩展
+        // 这里简单返回错误
+        curl_easy_cleanup(curl);
+        return std::string(u8"不支持的方法: ") + method;
+    }
 
-        // 构造请求头：声明Content-Type为JSON
-        struct curl_slist* headers = NULL;
+    // 处理请求头。 注意跨平台换行符问题：DuiLib 的 RichEdit 控件在不同系统或配置下可能返回 \r 作为换行符，而 std::getline 默认以 \n 分隔，导致 \r 残留在行内，破坏 HTTP 协议格式。
+    struct curl_slist* headers = nullptr;
+    if (headersStr && strlen(headersStr) > 0) {
+        std::string cleaned(headersStr);
+        // 将所有的 '\r' 替换为 '\n'
+        std::replace(cleaned.begin(), cleaned.end(), '\r', '\n');
+
+        // 打印请求头,调试用
+        Log("Raw headersStr hex:");
+        for (const char* p = headersStr; *p; ++p) {
+            char buf[10];
+            sprintf_s(buf, "%02X ", (unsigned char)*p);
+            Log(buf);
+        }
+
+        std::istringstream stream(cleaned);
+        std::string line;
+        while (std::getline(stream, line)) {
+            // 此时 line 中可能还有残留的 '\r'（如果有 "\r\n" 的情况），再清理一次
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            // 去除首尾空白
+            line.erase(0, line.find_first_not_of(" \t\r\n"));
+            line.erase(line.find_last_not_of(" \t\r\n") + 1);
+            if (line.empty()) continue;
+            // 查找冒号分隔符
+            size_t colon = line.find(':');
+            if (colon != std::string::npos) {
+                std::string key = line.substr(0, colon);
+                std::string value = line.substr(colon + 1);
+                // 去除 value 前导空白
+                value.erase(0, value.find_first_not_of(" \t"));
+                // 构造完整的头字段
+                std::string header = key + ": " + value;
+                headers = curl_slist_append(headers, header.c_str());
+            }
+            else {
+                // 如果没有冒号，忽略这一行
+                OutputDebugStringA("Ignored header line (no colon):   what happened? \n心口如一，犹不失为光明磊落丈夫之行也。");
+            }
+        }
+    }
+    else {
         headers = curl_slist_append(headers, "Content-Type: application/json");
+    }
+    if (headers) {
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
 
     // 执行同步HTTP请求
     CURLcode res = curl_easy_perform(curl);
+    Log("HttpRequest: after curl_easy_perform, res=" + std::to_string(res));
+
     // 请求出错
     if (res != CURLE_OK)
     {
         //response = "请求失败: " + std::string(curl_easy_strerror(res));
 
         const char* errUtf8 = curl_easy_strerror(res);
+        Log("HttpRequest error: " + std::string(errUtf8));
         response = std::string(u8"请求失败: ") + errUtf8; // 拼接 UTF-8 中文 + UTF-8 错误信息
     }
+    else {
+        Log("HttpRequest success, response length=" + std::to_string(response.size()));
+    }
 
-    // 释放curl资源
+    // 清理
+    if (headers) {
+        curl_slist_free_all(headers);
+    }
     curl_easy_cleanup(curl);
     return response;
 }
@@ -337,6 +414,10 @@ public:
                 CRichEditUI* bodyEdit = static_cast<CRichEditUI*>(m_pm.FindControl(_T("body_edit")));
                 CDuiString bodyW = bodyEdit->GetText();
 
+                // 4.获取请求头
+                CRichEditUI* headersEdit = static_cast<CRichEditUI*>(m_pm.FindControl(_T("headers_edit")));
+                CDuiString headersW = headersEdit ? headersEdit->GetText() : _T("");
+
                 // 宽字符转窄字符，给libcurl使用
                 auto WideToMulti = [](const std::wstring& wstr) -> std::string {
                     if (wstr.empty()) return "";
@@ -348,17 +429,21 @@ public:
                 std::string url = WideToMulti(urlW.GetData());
                 std::string method = WideToMulti(methodW.GetData());
                 std::string body = WideToMulti(bodyW.GetData());
+                std::string headers = WideToMulti(headersW.GetData());
 
-                // 4. 开子线程执行网络请求
-                // 避免阻塞UI主线程导致窗口卡死
+                // 4. 开子线程执行网络请求，可以避免阻塞UI主线程导致窗口卡死
                 std::thread([=, this]() // 这里的等于号，意思是值捕获，以“值拷贝”的方式，捕获外部所有变量。 this是当前类的this指针
                     {
                         // 执行HTTP请求
-                        std::string respResult = HttpRequest(url.c_str(), method.c_str(), body.c_str());
+                        std::string respResult = HttpRequest(url.c_str()
+                            , method.c_str()
+                            , body.c_str()
+                            , headers.empty() ? nullptr : headers.c_str());
 
                         try
                         {
                             // 测试下解析 JSON
+                            Log("Response raw: " + respResult.substr(0, 200));
                             json jsonStr = json::parse(respResult);
 
                             // 取值
