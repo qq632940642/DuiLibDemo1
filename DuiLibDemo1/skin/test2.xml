@@ -63,7 +63,7 @@
 		  </VerticalLayout>
 
 		  <!-- 3. 请求体（Body）区域 -->
-		  <VerticalLayout height="140" padding="0,0,0,12">
+		  <VerticalLayout height="100" padding="0,0,0,12">
 			  <Label text="请求体 (Request Body，JSON/文本格式)：" height="24" font="0" textcolor="#FF333333" />
 			  <RichEdit name="body_edit" multiline="true" vscrollbar="true" wanttab="true" wantreturn="true" nowrap="false" autovscroll="false" height="100"
 					font="2" bkcolor="#FFFFFFFF" bordersize="1" bordercolor="#FFCCCCCC"
@@ -71,12 +71,22 @@
 		  </VerticalLayout>
 
 		  <!-- 4. 响应结果区域 -->
-		  <VerticalLayout>
+		  <VerticalLayout height="100">
 			  <Label text="响应结果 (Response)：" height="24" font="0" textcolor="#FF333333" />
 			  <RichEdit name="result_edit" multiline="true" vscrollbar="true" readonly="true" height ="100"
 					font="2" bkcolor="#FFFFFFFF" bordersize="1" bordercolor="#FFCCCCCC"
 					textpadding="4,4,4,4" />
 		  </VerticalLayout>
+		  
+		<!-- 请求历史区域 -->
+		<VerticalLayout height="100" padding="0,8,0,0">
+			<Label text="请求历史 (双击还原):" height="24" font="0" textcolor="#FF333333" />
+			<List name="history_list" itemheight="24" vscrollbar="true" bkcolor="#FFFFFFFF" bordersize="1" bordercolor="#FFCCCCCC"
+				itemfont="0" itemtextcolor="#FF000000" itemselectedbkcolor="#FFE0E0E0"
+				 inset="0,-24,0,0"
+			>
+			</List>
+		</VerticalLayout>
 		  
 	  </VerticalLayout>
   </VerticalLayout>

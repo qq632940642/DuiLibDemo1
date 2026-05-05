@@ -40,14 +40,20 @@
 // 链接 winhttp.lib 库
 #pragma comment(lib, "winhttp.lib")
 
+#include "HistoryManager.h"
+#include <atlbase.h>
+#include <atlstr.h>
+#include <atlconv.h>
+
 using namespace DuiLib;
 using json = nlohmann::json;
+
+CDuiString Utf8ToDuiString(const std::string&);
 
 void Log(const std::string& msg) {
     std::string out = msg + "\n";
     OutputDebugStringA(out.c_str());
 }
-
 
 /**
  * @brief libcurl 数据接收回调函数
@@ -400,10 +406,41 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 //const TCHAR* const kMaxButtonControlName = _T("maxbtn");
 //const TCHAR* const kRestoreButtonControlName = _T("restorebtn");
 
+inline CDuiString Utf8ToDuiString(const std::string& utf8Str) {
+    if (utf8Str.empty()) return CDuiString();
+    CA2W wide(utf8Str.c_str(), CP_UTF8);
+    return CDuiString(wide);
+}
+
 
 // 窗口实例及消息相应部分
 class CFrameWindowWnd : public CWindowWnd, public INotifyUI
 {
+private:
+    HistoryManager m_historyManager;
+
+private:
+    void RefreshHistoryList() {
+        CListUI* listBox = static_cast<CListUI*>(m_pm.FindControl(_T("history_list")));
+        if (!listBox) return;
+
+        listBox->RemoveAll();
+
+        const auto& items = m_historyManager.GetAll();
+        for (const auto& item : items) {
+            if (item.url.empty()) continue;
+
+            std::string display = "[" + item.method + "] " + item.url;
+            CA2W utf8ToWide(display.c_str(), CP_UTF8);
+            CDuiString str(utf8ToWide);
+
+            CListLabelElementUI* pItem = new CListLabelElementUI;
+            pItem->SetText(str);
+            pItem->SetFixedHeight(24);
+            listBox->Add(pItem);
+        }
+    }
+
 public:
     CFrameWindowWnd() {};
 
@@ -495,6 +532,10 @@ public:
                 std::string body = WideToMulti(bodyW.GetData());
                 std::string headers = WideToMulti(headersW.GetData());
 
+                m_historyManager.Add(method, url, headers, body); // 添加历史并缓存历史记录
+                RefreshHistoryList(); // 刷新显示历史记录 
+
+
                 // 4. 开子线程执行网络请求，可以避免阻塞UI主线程导致窗口卡死
                 std::thread([=, this]() // 这里的等于号，意思是值捕获，以“值拷贝”的方式，捕获外部所有变量。 this是当前类的this指针
                     {
@@ -534,10 +575,68 @@ public:
                 }
             }
         }
+        
     }
 
     LRESULT HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
+        if (uMsg == WM_LBUTTONDBLCLK) // 双击
+        {
+            // 1. 获取鼠标点击的坐标
+            POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+
+            // 2. 查找鼠标下面的控件
+            CControlUI* pCtrl = m_pm.FindControl(pt);
+            if (!pCtrl) return 0;
+
+            // 3. 判断是不是【历史列表项】
+            CListLabelElementUI* pItem = dynamic_cast<CListLabelElementUI*>(pCtrl);
+            if (!pItem) return 0;
+
+            // 4. 找到历史列表
+            CListUI* pList = static_cast<CListUI*>(m_pm.FindControl(_T("history_list")));
+            if (!pList) return 0;
+
+            // 5. 获取选中项索引
+            int nIndex = pList->GetCurSel();
+            if (nIndex < 0) return 0;
+
+            // 6. 拿到历史数据
+            const auto& items = m_historyManager.GetAll();
+            if (nIndex >= (int)items.size()) return 0;
+            const HistoryItem& item = items[nIndex];
+
+            // ===================== 回填数据到界面 =====================
+            // URL
+            CEditUI* urlEdit = (CEditUI*)m_pm.FindControl(_T("url_edit"));
+            if (urlEdit) urlEdit->SetText(Utf8ToDuiString(item.url));
+
+            // 请求方式
+            CComboUI* combo = (CComboUI*)m_pm.FindControl(_T("method_combo"));
+            if (combo) {
+                for (int i = 0; i < combo->GetCount(); i++) {
+                    CListLabelElementUI* ele = (CListLabelElementUI*)combo->GetItemAt(i);
+                    if (ele && ele->GetText() == Utf8ToDuiString(item.method)) {
+                        combo->SelectItem(i);
+                        break;
+                    }
+                }
+            }
+
+            // 请求头
+            CRichEditUI* headersEdit = (CRichEditUI*)m_pm.FindControl(_T("headers_edit"));
+            if (headersEdit) headersEdit->SetText(Utf8ToDuiString(item.headers));
+
+            // 请求体
+            CRichEditUI* bodyEdit = (CRichEditUI*)m_pm.FindControl(_T("body_edit"));
+            if (bodyEdit) bodyEdit->SetText(Utf8ToDuiString(item.body));
+
+            //  handled
+            return 0;
+        }
+        if (uMsg == WM_SHOWWINDOW && wParam == TRUE) {
+            RefreshHistoryList();
+        }
         // 自定义消息：子线程请求完成，更新响应结果到界面
         if (uMsg == WM_USER + 100)
         {
@@ -575,6 +674,9 @@ public:
             m_pm.AttachDialog(root);
 
             m_pm.AddNotifier(this); // 注册事件监听器，接收控件通知（如 Notify 消息）
+
+            // 加载历史记录
+            //RefreshHistoryList();
             return 0;
         }
         else if (uMsg == WM_DESTROY) { // 窗口销毁
@@ -616,7 +718,6 @@ public:
                 }
             }
         }
-
 
         LRESULT lRes = 0;
         // 将 Windows 消息（uMsg）交由 CPaintManagerUI 处理(即交给对应控件处理)，若返回 true 表示消息已被消费，直接返回处理结果
