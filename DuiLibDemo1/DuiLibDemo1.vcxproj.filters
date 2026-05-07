@@ -24,6 +24,9 @@
     <ClCompile Include="HistoryManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="FileLogger.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -33,6 +36,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="HistoryManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLogger.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

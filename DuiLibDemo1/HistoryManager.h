@@ -40,5 +40,5 @@ private:
     std::vector<HistoryItem> m_items;
     static constexpr size_t MAX_HISTORY = 50;          // 最多保留50条
     std::string m_filePath;                            // history.json 的完整路径
-    void EnsureDirectoryExists();                      // 确保目录存在
+    //void EnsureDirectoryExists();                      // 确保目录存在
 };

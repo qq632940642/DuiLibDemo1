@@ -45,6 +45,10 @@
 #include <atlstr.h>
 #include <atlconv.h>
 
+#include "FileLogger.h"
+
+#define LOG_TO_FILE(msg) FileLogger::Instance().Log(msg)
+
 using namespace DuiLib;
 using json = nlohmann::json;
 
@@ -83,15 +87,17 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::stri
  * @brief 获取 Windows 系统的 HTTP 代理字符串（用于 libcurl）
  * @return std::string 代理字符串，如 "http://proxy.company.com:8080"；若系统未设代理或获取失败则返回空字符串
  */
-std::string GetProxyFromSystem() {
+std::string GetProxyFromSystem(std::string& outBypassList) {
     WINHTTP_CURRENT_USER_IE_PROXY_CONFIG proxyConfig = { 0 };
 
     // 1. 调用 Windows API 获取代理配置
     if (!WinHttpGetIEProxyConfigForCurrentUser(&proxyConfig)) {
+        LOG_TO_FILE("WinHttpGetIEProxyConfigForCurrentUser failed, error: " + std::to_string(GetLastError()));
         return ""; // 获取失败，返回空字符串
     }
 
     std::string proxyAddress;
+    outBypassList.clear();
 
     // 2. 检查是否配置了代理服务器
     if (proxyConfig.lpszProxy != nullptr && wcslen(proxyConfig.lpszProxy) > 0) {
@@ -115,6 +121,17 @@ std::string GetProxyFromSystem() {
         else {
             proxyAddress = "http://" + proxyAddr;  // 无协议，添加 http://
         }
+        LOG_TO_FILE("Proxy address: " + proxyAddress);
+    }
+
+    // 获取绕过列表
+    if (proxyConfig.lpszProxyBypass != nullptr && wcslen(proxyConfig.lpszProxyBypass) > 0) {
+        int len = WideCharToMultiByte(CP_UTF8, 0, proxyConfig.lpszProxyBypass, -1, nullptr, 0, nullptr, nullptr);
+        std::string bypass(len, '\0');
+        WideCharToMultiByte(CP_UTF8, 0, proxyConfig.lpszProxyBypass, -1, &bypass[0], len, nullptr, nullptr);
+        if (!bypass.empty() && bypass.back() == '\0') bypass.pop_back();
+        outBypassList = bypass;
+        LOG_TO_FILE("Proxy bypass list: " + outBypassList);
     }
 
     // 3. 清理内存，防止内存泄漏
@@ -136,10 +153,13 @@ std::string GetProxyFromSystem() {
 std::string HttpRequest(const char* url, const char* method, const char* body, const char* headersStr)
 {
     Log("进入 HttpRequest 函数");
+    LOG_TO_FILE("HttpRequest: " + std::string(method) + " " + std::string(url));
+
     // 初始化curl会话
     CURL* curl = curl_easy_init();
     if (!curl)
     {
+        LOG_TO_FILE("curl_easy_init failed");
         return "curl 初始化失败";
     }
 
@@ -159,14 +179,26 @@ std::string HttpRequest(const char* url, const char* method, const char* body, c
     curl_easy_setopt(curl, CURLOPT_URL, url);
 
     // ========== 自动代理设置开始。  醉过才知酒浓，爱过才知情重。 ==========
-    std::string proxyAddress = GetProxyFromSystem(); // 获取系统代理字符串
+    std::string proxyBypass;
+    std::string proxyAddress = GetProxyFromSystem(proxyBypass); // 获取系统代理字符串
     Log("proxyAddress: " + proxyAddress);
     if (!proxyAddress.empty()) {
+        LOG_TO_FILE("Setting proxy: " + proxyAddress);
         // 设置代理服务器地址
         curl_easy_setopt(curl, CURLOPT_PROXY, proxyAddress.c_str());
 
         // demo只访问HTTP，HTTP代理也能正常工作，这行是保险。
         curl_easy_setopt(curl, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+
+        if (!proxyBypass.empty()) {
+            // libcurl 的 CURLOPT_NOPROXY 接受逗号分隔的主机/域列表
+            std::replace(proxyBypass.begin(), proxyBypass.end(), ';', ',');
+            LOG_TO_FILE("Setting noproxy: " + proxyBypass);
+            curl_easy_setopt(curl, CURLOPT_NOPROXY, proxyBypass.c_str());
+        }
+    }
+    else {
+        LOG_TO_FILE("No proxy configured");
     }
     // ========== 自动代理设置结束。 力拔山兮气盖世 ==========
 
