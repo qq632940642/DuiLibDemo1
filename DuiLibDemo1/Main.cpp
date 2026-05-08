@@ -83,6 +83,50 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::stri
     return newLength;
 }
 
+bool MatchesBypassRule(const std::string& host, const std::string& rule) {
+    // 去除首尾空白
+    std::string r = rule;
+    r.erase(0, r.find_first_not_of(" \t"));
+    r.erase(r.find_last_not_of(" \t") + 1);
+    if (r.empty() || host.empty()) return false;
+
+    // 查找第一个通配符位置
+    size_t star = r.find('*');
+    if (star != std::string::npos) {
+        // 情况1：通配符在开头，如 "*.baidu.com" → 匹配后缀
+        if (star == 0) {
+            std::string suffix = r.substr(1); // 去掉 '*', 得到 ".baidu.com"
+            if (!suffix.empty() && host.size() >= suffix.size() &&
+                host.compare(host.size() - suffix.size(), suffix.size(), suffix) == 0) {
+                return true;
+            }
+        }
+        // 情况2：通配符在中间或末尾，如 "10.*.*.*"、"192.*" → 匹配前缀（忽略通配符及之后的所有内容）
+        else {
+            std::string prefix = r.substr(0, star);
+            if (host.compare(0, prefix.size(), prefix) == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 无通配符：精确匹配或前缀匹配（例如 "10." 匹配 "10.235..."）
+    if (host == r) return true;
+    if (host.find(r) == 0) return true;
+    return false;
+}
+
+std::string GetHostFromURL(const std::string& url) {
+    std::string host;
+    size_t start = url.find("://");
+    if (start == std::string::npos) start = 0;
+    else start += 3;
+    size_t end = url.find_first_of(":/", start);
+    if (end == std::string::npos) end = url.length();
+    return url.substr(start, end - start);
+}
+
 /**
  * @brief 获取 Windows 系统的 HTTP 代理字符串（用于 libcurl）
  * @return std::string 代理字符串，如 "http://proxy.company.com:8080"；若系统未设代理或获取失败则返回空字符串
@@ -179,10 +223,24 @@ std::string HttpRequest(const char* url, const char* method, const char* body, c
     curl_easy_setopt(curl, CURLOPT_URL, url);
 
     // ========== 自动代理设置开始。  醉过才知酒浓，爱过才知情重。 ==========
+    std::string host = GetHostFromURL(url);
     std::string proxyBypass;
     std::string proxyAddress = GetProxyFromSystem(proxyBypass); // 获取系统代理字符串
     Log("proxyAddress: " + proxyAddress);
-    if (!proxyAddress.empty()) {
+    bool useProxy = !proxyAddress.empty();
+    if (useProxy && !proxyBypass.empty()) {
+        // 按分号分隔绕过规则
+        std::stringstream ss(proxyBypass);
+        std::string rule;
+        while (std::getline(ss, rule, ';')) {
+            if (MatchesBypassRule(host, rule)) {
+                useProxy = false;
+                LOG_TO_FILE("Bypass proxy for host: " + host + " (rule: " + rule + ")");
+                break;
+            }
+        }
+    }
+    if (useProxy) {
         LOG_TO_FILE("Setting proxy: " + proxyAddress);
         // 设置代理服务器地址
         curl_easy_setopt(curl, CURLOPT_PROXY, proxyAddress.c_str());
@@ -190,12 +248,13 @@ std::string HttpRequest(const char* url, const char* method, const char* body, c
         // demo只访问HTTP，HTTP代理也能正常工作，这行是保险。
         curl_easy_setopt(curl, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
 
-        if (!proxyBypass.empty()) {
-            // libcurl 的 CURLOPT_NOPROXY 接受逗号分隔的主机/域列表
-            std::replace(proxyBypass.begin(), proxyBypass.end(), ';', ',');
-            LOG_TO_FILE("Setting noproxy: " + proxyBypass);
-            curl_easy_setopt(curl, CURLOPT_NOPROXY, proxyBypass.c_str());
-        }
+        // 已经确认使用代理就不设置CURLOPT_NOPROXY了。
+        //if (!proxyBypass.empty()) {
+        //    // libcurl 的 CURLOPT_NOPROXY 接受逗号分隔的主机/域列表
+        //    std::replace(proxyBypass.begin(), proxyBypass.end(), ';', ',');
+        //    LOG_TO_FILE("Setting noproxy: " + proxyBypass);
+        //    curl_easy_setopt(curl, CURLOPT_NOPROXY, proxyBypass.c_str());
+        //}
     }
     else {
         LOG_TO_FILE("No proxy configured");
