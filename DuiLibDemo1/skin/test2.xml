@@ -6,14 +6,19 @@
   <Font id="0" name="微软雅黑" size="12" bold="false" default="true" shared="true" />
   <Font id="1" name="微软雅黑" size="12" bold="true" shared="true" />
   <Font id="2" name="Consolas" size="13" bold="false" default="false" shared="false" />
-  
+
   <VerticalLayout bkcolor="#FFFFFFFF" bordersize="2" bordercolor="#FF0934DA" name ="root">
 	<!--标题栏区域-->
     <HorizontalLayout name="title_bar" height="36" bkcolor="#FF4775CC">
       <HorizontalLayout>
         <Control width="10"/>
-        <Label name="apptitle" text="API测试工具   昨日种种，皆成今我；切莫思量，更莫哀；从今往后，怎么收获，怎么栽。" font="1" textcolor="#FFFFFFFF" />
-      </HorizontalLayout>  
+		  <Label name="apptitle" text="API测试工具     路虽远，行将必至。" font="1" textcolor="#FFFFFFFF" />
+		  <!--
+		  <MarqueeLabel name="apptitle" text="API测试工具   昨日种种，皆成今我；切莫思量，更莫哀；从今往后，怎么收获，怎么栽。"
+				font="1" textcolor="#FFFFFFFF" rollinterval="30" rollstep="2" />     
+		  -->       	  
+	  
+	  </HorizontalLayout>  
 	  <HorizontalLayout height="25" width="96">
         <Button name="minbtn" tooltip="最小化" height="18" width="26" normalimage="file='minimize.png'" hotimage="file='minimize_h.png'" pushedimage="file='minimize_p.png'"/>
         <Button name="maxbtn" tooltip="最大化" height="18" width="25" normalimage="file='maximize.png'" hotimage="file='maximize_h.png'" pushedimage="file='maximize_p.png'"/>

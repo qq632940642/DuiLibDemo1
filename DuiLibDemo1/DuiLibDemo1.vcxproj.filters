@@ -27,6 +27,9 @@
     <ClCompile Include="FileLogger.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="QuoteRotator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -39,6 +42,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="FileLogger.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="QuoteRotator.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -110,6 +116,9 @@
       <Filter>资源文件</Filter>
     </Image>
     <Image Include="skin\button_p.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="C:\Users\86186\Desktop\scroll_bg.png">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>

@@ -47,12 +47,24 @@
 
 #include "FileLogger.h"
 
+#include "QuoteRotator.h"
+
 #define LOG_TO_FILE(msg) FileLogger::Instance().Log(msg)
 
 using namespace DuiLib;
 using json = nlohmann::json;
 
 CDuiString Utf8ToDuiString(const std::string&);
+
+std::string GetExeDirectory() {
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(NULL, buffer, MAX_PATH);
+    std::string path(buffer);
+    size_t pos = path.find_last_of("\\/");
+    if (pos != std::string::npos)
+        return path.substr(0, pos + 1);
+    return "./";
+}
 
 void Log(const std::string& msg) {
     std::string out = msg + "\n";
@@ -509,6 +521,8 @@ class CFrameWindowWnd : public CWindowWnd, public INotifyUI
 {
 private:
     HistoryManager m_historyManager;
+    QuoteRotator m_quoteRotator;
+    UINT_PTR m_uQuoteTimer;
 
 private:
     void RefreshHistoryList() {
@@ -622,6 +636,19 @@ public:
                 std::string method = WideToMulti(methodW.GetData());
                 std::string body = WideToMulti(bodyW.GetData());
                 std::string headers = WideToMulti(headersW.GetData());
+
+                // 执行前打印下日志，调试用
+                Log("进入 HttpRequest 函数");
+                LOG_TO_FILE("Request body hex:");
+                for (unsigned char c : body) {
+                    char buf[10]; sprintf_s(buf, "%02X ", c);
+                    LOG_TO_FILE(buf);
+                }
+
+                // 优化：清理请求体中的不可见控制字符（保留 \r \n \t）
+                body.erase(std::remove_if(body.begin(), body.end(),
+                    [](unsigned char c) { return c < 0x20 && c != '\r' && c != '\n' && c != '\t'; }),
+                    body.end());
 
                 m_historyManager.Add(method, url, headers, body); // 添加历史并缓存历史记录
                 RefreshHistoryList(); // 刷新显示历史记录 
@@ -768,9 +795,40 @@ public:
 
             // 加载历史记录
             //RefreshHistoryList();
+
+            // ========== 在这里添加轮播名人名言 ==========
+        // 1. 获取 exe 所在目录（复用之前的函数）
+            std::string exePath = GetExeDirectory();   // 你需要实现这个函数，或直接写路径
+            std::string quoteFile = exePath + "quotes.txt";
+            m_quoteRotator.LoadFromFile(quoteFile);   // 加载名言
+
+            // 2. 显示第一条名言
+            CLabelUI* pTitle = static_cast<CLabelUI*>(m_pm.FindControl(_T("apptitle")));
+            if (pTitle && m_quoteRotator.Count() > 0) {
+                pTitle->SetText(m_quoteRotator.GetCurrentQuote().c_str());
+            }
+
+            // 3. 启动定时器（10秒，ID=1001）
+            m_uQuoteTimer = ::SetTimer(m_hWnd, 1001, 10000, NULL);
+            // ======================================
+
+
+            return 0;
+        }
+        else if (uMsg == WM_TIMER && wParam == 1001) { // 定时到了，显示下一条数据
+            CLabelUI* pTitle = static_cast<CLabelUI*>(m_pm.FindControl(_T("apptitle")));
+            if (pTitle) {
+                pTitle->SetText(m_quoteRotator.NextQuote().c_str());
+            }
             return 0;
         }
         else if (uMsg == WM_DESTROY) { // 窗口销毁
+            // 销毁定时器
+            if (m_uQuoteTimer) {
+                ::KillTimer(m_hWnd, m_uQuoteTimer);
+                m_uQuoteTimer = 0;
+            }
+
             ::PostQuitMessage(0); // 0表示正常退出
         }
         // 不想使用系统的标题栏和边框这些非客户区绘制，加上下面这俩分支（WM_NCACTIVATE、WM_NCCALCSIZE、WM_NCPAINT 消息）的处理
